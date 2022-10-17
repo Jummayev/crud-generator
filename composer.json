@@ -1,0 +1,21 @@
+{
+    "name": "oks/crud-generator",
+    "type": "library",
+    "require": {
+        "spatie/laravel-query-builder": "^4.0",
+        "laravel/passport": "^10.4",
+        "mpociot/laravel-apidoc-generator": "^4.8"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Oks\\CrudGenerator\\": "scr"
+        }
+    },
+    "authors": [
+        {
+            "name": "Nurbek Jummayev",
+            "email": "jummayevnurbek279@gmail.com"
+        }
+    ]
+}
