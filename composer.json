@@ -1,5 +1,5 @@
 {
-    "name": "oks/crud-generator",
+    "name": "oks-tec/crud-generator",
     "type": "library",
     "require": {
         "spatie/laravel-query-builder": "^4.0",
