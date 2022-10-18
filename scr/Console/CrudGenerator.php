@@ -46,11 +46,11 @@ class CrudGenerator extends Command
 
         $this->model($name, $dbname);
         $this->controller($name, $path, $dbname);
-
+        $namespace = 'App\\Http\\Controllers';
         if ($path == '/') {
-            $namespace = '';
+            $namespace .= '';
         } else {
-            $namespace = str_replace('/', '\\', $path);
+            $namespace .= str_replace('/', '\\', $path);
         }
 
         $routeName = str_replace('_', '-', $dbname);
