@@ -3,7 +3,6 @@
 namespace Oks\CrudGenerator\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -15,7 +14,7 @@ class CrudGenerator extends Command
      * @var string
      */
     protected $signature = 'crud:generator
-    {name : Class (singular) for example User} {path : Class (singular) for example User Api}';
+    {name : Class (singular) for example User} {path : Class (singular) for example User Api} {table : Class (singular) for example users}';
 
     /**
      * The console command description.
@@ -43,69 +42,85 @@ class CrudGenerator extends Command
     {
         $name = $this->argument('name');
         $path = $this->argument('path');
+        $dbname = $this->argument('table');
 
-        $this->model($name);
-        $this->controller($name, $path);
-        $name_lower = Str::plural(strtolower($name));
-        $name_upper = Str::plural(strtoupper($name));
+        $this->model($name, $dbname);
+        $this->controller($name, $path, $dbname);
+
         if ($path == '/') {
             $namespace = '';
         } else {
             $namespace = str_replace('/', '\\', $path);
         }
-        $routes = "/*--------------------------------------------------------------------------------
-            {$name_upper} ROUTES  => START
-        --------------------------------------------------------------------------------*/
-        Route::prefix('v1')->group(function () {
-            Route::middleware('auth:Api')->group(function () {
-                Route::prefix('/admin/{$name_lower}')->group(function () {
-                    Route::get('/', '{$namespace}\\{$name}Controller@index');
-                    Route::post('/', '{$namespace}\\{$name}Controller@create');
-                    Route::put('/{id}', '{$namespace}\\{$name}Controller@update');
-                    Route::get('/{id}', '{$namespace}\\{$name}Controller@show');
-                    Route::delete('/{id}', '{$namespace}\\{$name}Controller@destroy');
-                });
-            });
-            Route::prefix('/{$name_lower}')->group(function () {
-                Route::get('/', '{$namespace}\\{$name}Controller@index');
-                Route::get('/{id}', '{$namespace}\\{$name}Controller@show');
+
+        $routeName = str_replace('_', '-', $dbname);
+
+        $routes = "
+/*--------------------------------------------------------------------------------
+    {$name} ROUTES  => START
+--------------------------------------------------------------------------------*/
+    Route::prefix('v1')->group(function () {
+        Route::middleware(['auth:Api', 'scope:admin'])->group(function () {
+            Route::prefix('/admin/{$routeName}')->group(function () {
+                Route::get('/', '{$namespace}\\{$name}Controller@adminIndex');
+                Route::post('/', '{$namespace}\\{$name}Controller@create');
+                Route::put('/{id}', '{$namespace}\\{$name}Controller@update')->where('id', '[0-9]+');
+                Route::get('/{id}', '{$namespace}\\{$name}Controller@show')->where('id', '[0-9]+');
+                Route::delete('/{id}', '{$namespace}\\{$name}Controller@destroy')->where('id', '[0-9]+');
             });
         });
-        /*--------------------------------------------------------------------------------
-            {$name_upper} ROUTES  => END
-        --------------------------------------------------------------------------------*/";
-        File::append(base_path('routes/api.php'), $routes);
+        Route::prefix('/{$routeName}')->group(function () {
+            Route::get('/', '{$namespace}\\{$name}Controller@index');
+            Route::get('/{id}', '{$namespace}\\{$name}Controller@show')->where('id', '[0-9]+');
+        });
+    });
+/*--------------------------------------------------------------------------------
+    {$name} ROUTES  => END
+--------------------------------------------------------------------------------*/
+";
+        \Illuminate\Support\Facades\File::append(base_path('routes/api.php'), $routes);
+        return 'success';
     }
 
-    protected function model($name)
+    protected function model($name, $tableName)
     {
-        $attributes = Schema::getColumnListing(strtolower($name));
+        $attributes = Schema::getColumnListing($tableName);
         $fields = '';
         $rules = '';
+        $casts = '';
         $i = 0;
         $count = count($attributes);
         foreach ($attributes as $attribute) {
-            $i++;
-            if ($i == $count) {
-                $fields .= "'{$attribute}'";
-            } else {
-                $fields .= "'{$attribute}', ";
+            if ($attribute != 'id') {
+                $i++;
+                if ($i == $count) {
+                    $fields .= "'{$attribute}'";
+                } else {
+                    $fields .= "'{$attribute}', ";
+                }
+                $type = Schema::getColumnType($tableName, $attribute);
+                if ($type == 'json' || $type == 'jsonb') {
+                    $casts .= "\n\t\t'{$attribute}' => 'array',";
+                    $rules .= "\n\t\t\t'{$attribute}' => 'array|nullable',";
+                } else {
+                    $rules .= "\n\t\t\t'{$attribute}' => '{$type}|nullable',";
+                }
             }
-            $type = Schema::getColumnType(strtolower($name), $attribute);
-            $rules .= "'{$attribute}' => '{$type}',\n";
         }
 
         $modelTemplate = str_replace(
             [
                 '{{modelName}}',
                 '{{fillable}}',
+                '{{casts}}',
                 '{{table}}',
                 '{{rules}}'
             ],
             [
                 $name,
                 $fields,
-                strtolower($name),
+                $casts,
+                $tableName,
                 $rules
             ],
             $this->getStub('Model')
@@ -119,15 +134,22 @@ class CrudGenerator extends Command
         return file_get_contents(resource_path("stubs/$type.stub"));
     }
 
-    protected function controller($name, $path)
+    protected function controller($name, $path, $tableName)
     {
-        $attributes = Schema::getColumnListing(strtolower($name));
+        $attributes = Schema::getColumnListing($tableName);
         $fields = '';
         $response = '';
+        $langFields = '';
         foreach ($attributes as $attribute) {
-            $type = Schema::getColumnType(strtolower($name), $attribute);
+            $type = Schema::getColumnType($tableName, $attribute);
             $fields .= "* @bodyParam {$attribute} {$type} no-required {$attribute}\n";
             $response .= "*  \"{$attribute}\": \"{$type}\",\n";
+
+            $type = Schema::getColumnType($tableName, $attribute);
+            if ($type == 'json' || $type == 'jsonb') {
+                $langFields .= ", \n\t\t\t".$attribute . '->\'$lang\' as ' . $attribute;
+            }
+
         }
 
         if ($path == '/') {
@@ -145,7 +167,8 @@ class CrudGenerator extends Command
                 '{{modelNameSingularLowerCase}}',
                 '{{fields}}',
                 '{{namespace}}',
-                '{{response}}'
+                '{{response}}',
+                '{{langFields}}'
             ],
             [
                 $name,
@@ -153,10 +176,10 @@ class CrudGenerator extends Command
                 strtolower($name),
                 $fields,
                 $namespace,
-                $response
+                $response,
+                $langFields,
             ],
             $this->getStub('Controller')
-
         );
 
 
