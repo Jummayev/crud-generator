@@ -13,7 +13,7 @@ use Spatie\QueryBuilder\QueryBuilder;
  * @group {{modelName}}
  *
  */
-class {{modelName}}Controller extends ApiController
+class {{modelName}}Controller extends Controller
 {
     public $modelClass = {{modelName}}::class;
 
