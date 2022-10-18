@@ -5,6 +5,7 @@ namespace App\Http\Controllers{{namespace}};
 use App\Http\Controllers\Api\ApiController;
 use App\Models\{{modelName}};
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Lang;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -36,11 +37,44 @@ class {{modelName}}Controller extends ApiController
         }
 
         $query = QueryBuilder::for($this->modelClass);
+        if (!empty(Lang::getLocale())) {
+            $lang = Lang::getLocale();
+            $query->selectRaw("
+            *{{langFields}}
+            ")->get();
+        }
         $query->allowedFilters($filter);
-        $query->allowedAppends(!empty($request->get("append")) ? explode(',', $request->get('append')) : []);
-        $query->allowedIncludes(!empty($request->get("include")) ? explode(',', $request->get('include')) : []);
-        $query->allowedSorts($request->get("sort"));
-        return $query->paginate($request->get("per_page"));
+        $query->allowedAppends(!empty($request->append) ? explode(',', $request->get('append')) : []);
+        $query->allowedIncludes(!empty($request->include) ? explode(',', $request->get('include')) : []);
+        $query->allowedSorts($request->get('sort'));
+        return $query->paginate($request->get('per_page'));
+    }
+
+    /**
+    * {{modelName}} adminIndex get All
+    *
+    * @response {
+    {{response}}
+    * "roles": ["admin"]
+    * }
+    * @var Request $request
+    */
+    public function adminIndex(Request $request)
+    {
+        $filters = $request->get('filter');
+        $filter = [];
+        if (!empty($filters)) {
+            foreach ($filters as $k => $item) {
+                $filter[] = AllowedFilter::exact($k);
+            }
+        }
+
+        $query = QueryBuilder::for($this->modelClass);
+        $query->allowedFilters($filter);
+        $query->allowedAppends(!empty($request->append) ? explode(',', $request->get('append')) : []);
+        $query->allowedIncludes(!empty($request->include) ? explode(',', $request->get('include')) : []);
+        $query->allowedSorts($request->get('sort'));
+        return $query->paginate($request->get('per_page'));
     }
 
     /**
@@ -57,11 +91,11 @@ class {{modelName}}Controller extends ApiController
     {
         $model = $this->modelClass::findOrFail($id);
 
-        if (!empty($request->get("append"))) {
-            $model->append(explode(',', $request->get("append")));
+        if (!empty($request->append)) {
+            $model->append(explode(',', $request->append));
         }
-        if (!empty($request->get("include"))) {
-            $model->load(explode(',', $request->get("include")));
+        if (!empty($request->include)) {
+            $model->load(explode(',', $request->include));
         }
 
         return $model;
@@ -79,11 +113,11 @@ class {{modelName}}Controller extends ApiController
         $request->validate($this->modelClass::rules());
         $model = $this->modelClass::create($request->all());
 
-        if (!empty($request->get("append"))) {
-            $model->append(explode(',', $request->get("append")));
+        if (!empty($request->append)) {
+            $model->append(explode(',', $request->append));
         }
-        if (!empty($request->get("include"))) {
-            $model->load(explode(',', $request->get("include")));
+        if (!empty($request->include)) {
+            $model->load(explode(',', $request->include));
         }
 
         return $model;
@@ -105,11 +139,11 @@ class {{modelName}}Controller extends ApiController
         $model = $this->modelClass::findOrFail($id);
         $model->update($request->all());
 
-        if (!empty($request->get("append"))) {
-            $model->append(explode(',', $request->get("append")));
+        if (!empty($request->append)) {
+            $model->append(explode(',', $request->append));
         }
-        if (!empty($request->get("include"))) {
-            $model->load(explode(',', $request->get("include")));
+        if (!empty($request->include)) {
+            $model->load(explode(',', $request->include));
         }
 
         return $model;
@@ -122,11 +156,14 @@ class {{modelName}}Controller extends ApiController
      *
      * @var $id
      */
-    public function destroy(int $id)
+    public function destroy(int $id): array
     {
         $model = $this->modelClass::findOrFail($id);
         $model->update(['is_deleted' => 1]);
         $model->delete();
-        return response()->json('deleted', 204);
+        return [
+            "status" => "success",
+            "data" => $model
+        ];
     }
 }
