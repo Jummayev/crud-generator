@@ -3,8 +3,7 @@
     "type": "library",
     "require": {
         "spatie/laravel-query-builder": "^4.0",
-        "laravel/passport": "^10.4",
-        "mpociot/laravel-apidoc-generator": "^4.8"
+        "laravel/passport": "^10.4"
     },
     "license": "MIT",
     "autoload": {
