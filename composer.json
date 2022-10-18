@@ -3,7 +3,8 @@
     "type": "library",
     "require": {
         "spatie/laravel-query-builder": "^4.0",
-        "laravel/passport": "^10.4"
+        "laravel/passport": "^10.4",
+        "doctrine/dbal": "^3.4"
     },
     "license": "MIT",
     "autoload": {
