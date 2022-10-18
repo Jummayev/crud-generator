@@ -8,12 +8,14 @@ class {{modelName}} extends Model
 {
     protected $table = '{{table}}';
 
+    protected $casts = [{{casts}}
+    ];
+
     protected $fillable = [{{fillable}}];
 
-    public static function rules()
+    public static function rules(): array
     {
-        return [
-            {{rules}}
+        return [{{rules}}
         ];
     }
 }
